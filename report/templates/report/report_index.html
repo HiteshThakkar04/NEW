@@ -1,0 +1,325 @@
+{% extends 'ecgdatabank/base.html' %}
+{% load static %}
+
+{% block title %}ECG Report{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --bg-color: #f4f7fa;
+        --card-bg: #ffffff;
+        --text-primary: #2a3d66;
+        --text-secondary: #4d6478;
+        --table-header-bg: #000000;
+        --table-header-text: #ffffff;
+        --table-hover-bg: rgba(42, 61, 102, 0.1);
+        --shadow-color: rgba(0, 0, 0, 0.1);
+        --title-color: #000000;
+        --chart-legend-text: #333333;
+        --chart-border: black;
+    }
+
+    [data-theme="dark"] {
+        --bg-color: #1e2a44;
+        --card-bg: #2a3d66;
+        --text-primary: #e0e6ef;
+        --text-secondary: #a3bffa;
+        --table-header-bg: #000000;
+        --table-header-text: #ffffff;
+        --table-hover-bg: rgba(160, 108, 213, 0.2);
+        --shadow-color: rgba(0, 0, 0, 0.3);
+        --title-color: #ffffff;
+        --chart-legend-text: #e0e6ef;
+        --chart-border: white;
+    }
+
+    .summary-card {
+        background: var(--card-bg);
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 2px 2px 12px var(--shadow-color);
+        margin-bottom: 20px;
+        text-align: center;
+    }
+
+    .summary-card h3 {
+        font-size: 18px;
+        color: var(--text-secondary);
+    }
+
+    .summary-card p {
+        font-size: 20px;
+        font-weight: bold;
+        color: var(--text-primary);
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--card-bg);
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 2px 2px 12px var(--shadow-color);
+    }
+
+    th, td {
+        padding: 18px;
+        font-size: 16px;
+        text-align: left;
+        border-bottom: 1px solid var(--shadow-color);
+        color: var(--text-primary);
+    }
+
+    th {
+        background: var(--table-header-bg);
+        color: var(--table-header-text);
+    }
+
+    tr:hover {
+        background-color: var(--table-hover-bg);
+    }
+
+    .chart-container {
+        background: var(--card-bg);
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 2px 2px 12px var(--shadow-color);
+        max-width: 100%;
+        max-height: 600px;
+    }
+
+    #patientChart {
+        max-width: 100%;
+        max-height: 400px;
+    }
+
+    .recent-records-container {
+        height: auto; /* Increased table height */
+        overflow-y: auto;
+    }
+
+    .theme-toggle-btn {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        padding: 8px 14px;
+        border: none;
+        border-radius: 6px;
+        background-color: #4a90e2;
+        color: #fff;
+        cursor: pointer;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content">
+    <div class="container mt-4">
+        <h2 class="ecg-title" style="text-align: center;">ECG Data Bank Report</h2>
+        <br>
+        <div class="row text-center">
+            <div class="col-md-4">
+                <div class="summary-card">
+                    <h3>Total Patients</h3>
+                    <p id="total-patients">Loading...</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="summary-card">
+                    <h3>Total Records</h3>
+                    <p id="total-records">Loading...</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="summary-card">
+                    <h3>Total Time Recorded</h3>
+                    <p id="total-time">Loading...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="chart-container">
+                    <h3 class="text-center">Patient Distribution</h3>
+                    <canvas id="patientChart"></canvas>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="recent-records-container">
+                    <h3 class="text-center">Recent ECG Records</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Sr. No.</th>
+                                <th>Patient ID</th>
+                                <th>Lead</th>
+                                <th>Arrhythmia</th>
+                                <th>Duration</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recent-records">
+                            <!-- Records injected dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+let ecgChartInstance = null;
+
+const labelMap = {
+    'Premature Ventricular Contraction': 'PVC',
+    'Ventricular Fibrillation and Asystole': 'VFL',
+    'HeartBlock': 'HeartBlock',
+    'Atrial Fibrillation & Atrial Flutter': 'AFIB',
+    'Myocardial Infarction': 'MI',
+    'Premature Atrial Contraction': 'PAC',
+    'Junctional Rhythm': 'Junctional',
+    'Noise': 'Noise',
+    'Others': 'Others',
+    'LBBB & RBBB':['LBBB','RBBB']
+};
+
+function updatePieChart(collectionDataCount) {
+    const ctx = document.getElementById('patientChart').getContext('2d');
+    const isDarkTheme = document.documentElement.getAttribute('data-theme') === 'dark';
+
+    // Save data for reloading when theme changes
+    window.collectionDataCount = collectionDataCount;
+
+    const dbLabels = Object.keys(labelMap);
+    const shortLabels = dbLabels.map(full => labelMap[full]);
+    const values = dbLabels.map(label => collectionDataCount[label] || 0);
+
+    const chartData = {
+        labels: shortLabels,
+        datasets: [{
+            data: values,
+            backgroundColor: [
+                '#fff100', '#ff8c00', '#e81123', '#ec008c',
+                '#68217a', '#00188f', '#00bcf2', '#00b294', '#009e49',
+                '#bad80a'
+            ],
+            borderColor: isDarkTheme ? '#2a3d66' : '#ffffff',
+            borderWidth: 2
+        }]
+    };
+
+    if (ecgChartInstance) {
+        ecgChartInstance.destroy();
+    }
+
+    ecgChartInstance = new Chart(ctx, {
+        type: 'pie',
+        data: chartData,
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: {
+                        font: { size: 14 },
+                        color: isDarkTheme ? 'white' : 'black'  // ✅ Correct placement
+                    },
+                    onClick: function (e, legendItem, legend) {
+                        const chart = legend.chart;
+                        const index = legendItem.index;
+                        chart.toggleDataVisibility(index);
+                        chart.update();
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        title: function (context) {
+                            const index = context[0].dataIndex;
+                            const dbLabel = Object.keys(labelMap)[index];
+                            return dbLabel.toUpperCase();
+                        },
+                        label: function (context) {
+                            const value = context.raw || 0;
+                            return ` ${value} min`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+
+
+function populateDashboard(initialData) {
+    document.getElementById('total-patients').textContent = initialData.total_patients || 0;
+    document.getElementById('total-records').textContent = initialData.total_records || 0;
+    document.getElementById('total-time').textContent = (initialData.total_time || 0) + " mins";
+
+    const recentRecordsTable = document.getElementById('recent-records');
+    recentRecordsTable.innerHTML = '';
+
+    (initialData.recent_records || []).slice(0, 5).forEach((record, index) => {
+        if (!record.patient_id || record.patient_id.toLowerCase() === 'unknown' || 
+            !record.lead || record.lead.toLowerCase() === 'unknown') return;
+
+        recentRecordsTable.innerHTML += `
+            <tr>
+                <td>${index + 1}</td>
+                <td>${record.patient_id}</td>
+                <td>${record.lead}</td>
+                <td>${record.arrhythmia || 'N/A'}</td>
+                <td>${record.recording_time || 0} min</td>
+            </tr>`;
+    });
+
+    updatePieChart(initialData.collection_data_count);
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+    const initialData = {
+        total_patients: {{ total_patients|default:0 }},
+        total_records: {{ total_records|default:0 }},
+        total_time: {{ total_time|default:0 }},
+        recent_records: {{ recent_records|safe }},
+        collection_data_count: {{ collection_data_count|safe }}
+    };
+
+    populateDashboard(initialData);
+
+    // Theme logic
+    const themeToggle = document.getElementById('theme-toggle');
+    if (themeToggle) {
+        themeToggle.textContent = savedTheme === 'dark' ? 'Toggle Light Theme' : 'Toggle Dark Theme';
+
+        themeToggle.addEventListener('click', () => {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            themeToggle.textContent = newTheme === 'dark' ? 'Toggle Light Theme' : 'Toggle Dark Theme';
+
+            // Refresh pie chart
+            if (ecgChartInstance) {
+                ecgChartInstance.destroy();
+                ecgChartInstance = null;
+            }
+            updatePieChart(initialData.collection_data_count);
+        });
+    }
+});
+const observer = new MutationObserver(() => {
+    if (window.collectionDataCount) {
+        updatePieChart(window.collectionDataCount);
+    }
+});
+
+observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['data-theme']
+});
+
+</script>
+{% endblock %}

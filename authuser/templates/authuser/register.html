@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Create an account for ECG Databank to manage your electrocardiogram data securely.">
+  <meta name="robots" content="noindex, nofollow">
+  <title>ECG Databank Register</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha512-Avb2QiuDEEvB4bZJYdft2mNjVShBftLdPG8FJ0V7irTLQ8Uo0qcPxh4Plq7G5tGm0rU+1SPhVotteLpBERwTkw==" crossorigin="anonymous" referrerpolicy="no-referrer">
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Roboto', sans-serif;
+      background: #1c2526;
+      color: #ffffff;
+      overflow: hidden;
+    }
+
+    .container {
+      display: flex;
+      height: 100vh;
+      width: 100%;
+      flex-direction: row;
+    }
+
+    .register-section, .info-section {
+      flex: 1;
+      padding: 40px;
+      display: flex;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    video#ecgVideo {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 0;
+      opacity: 0.35;
+      filter: brightness(1.1) contrast(1.15);
+    }
+
+    .register-content {
+      position: relative;
+      z-index: 10;
+      max-width: 550px;
+      width: 80%;
+      height: auto;
+      margin: auto;
+    }
+
+    .logo {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 40px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background-color: rgba(255, 87, 51, 0.15);
+      border-radius: 0.75rem;
+      padding: 10px 20px;
+      color: #ffffff;
+    }
+
+    .logo i {
+      color: #ff6b00;
+      {% comment %} font-size: 2.25rem; {% endcomment %}
+    }
+
+    .register-card {
+      background: rgba(28, 37, 38, 0.9);
+      padding: 25px;
+      border-radius: 16px;
+      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 87, 51, 0.3);
+    }
+
+    .register-card h2 {
+      font-size: 26px;
+      margin-bottom: 12px;
+      color: #ff3b30;
+      font-weight: 700;
+    }
+
+    .register-card p {
+      margin-bottom: 24px;
+      color: #d1d5db;
+      {% comment %} font-size: 1rem; {% endcomment %}
+    }
+
+    .register-card form {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .register-card label {
+      margin-bottom: 6px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #ffffff;
+    }
+
+    .register-card input[type="text"],
+    .register-card input[type="password"],
+    .register-card input[type="email"],
+    .register-card input[type="tel"] {
+      padding: 10px;
+      border: 1px solid #ff6b00;
+      border-radius: 0.5rem;
+      margin-bottom: 16px;
+      background-color: #2d3748;
+      color: #ffffff;
+      outline: none;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .register-card input:focus {
+      border-color: #ff3b30;
+      box-shadow: 0 0 0 3px rgba(255, 87, 51, 0.2);
+    }
+
+    .sign-up {
+      background: linear-gradient(90deg, #ff3b30, #ff6b00);
+      color: #ffffff;
+      padding: 12px;
+      border: none;
+      border-radius: 0.5rem;
+      font-weight: 500;
+      cursor: pointer;
+      margin-bottom: 12px;
+      transition: background 0.3s ease, transform 0.2s ease;
+    }
+
+    .sign-up:hover {
+      background: linear-gradient(90deg, #d92d20, #e55b00);
+      transform: translateY(-2px);
+    }
+
+    .sign-up:focus {
+      outline: 2px solid #ff3b30;
+      outline-offset: 2px;
+    }
+
+    .login-link {
+      font-size: 0.875rem;
+      text-align: center;
+      color: #d1d5db;
+    }
+
+    .login-link a {
+      color: #ff6b00;
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.3s ease;
+    }
+
+    .login-link a:hover {
+      color: #e55b00;
+    }
+
+    .glowing-icon {
+      color: #ff6b00;
+      font-size: 2.25rem;
+      animation: pulse 2s infinite ease-in-out;
+    }
+
+    @keyframes pulse {
+      0% {
+        transform: scale(1);
+        text-shadow: 0 0 5px rgba(255, 107, 0, 0.4);
+      }
+      50% {
+        transform: scale(1.1);
+        text-shadow: 0 0 10px rgba(255, 107, 0, 0.6);
+      }
+      100% {
+        transform: scale(1);
+        text-shadow: 0 0 5px rgba(255, 107, 0, 0.4);
+      }
+    }
+
+    .error-message {
+      color: #ff3b30;
+      font-size: 0.875rem;
+      margin-bottom: 1rem;
+      opacity: 1;
+      transition: opacity 0.5s ease;
+      font-weight: 500;
+    }
+
+    .info-section {
+      background: linear-gradient(135deg, #1c2526, #2d3748);
+    }
+
+    .info-section::before {
+      content: '';
+      background: url('/static/images/hypertension-1.png') center/cover no-repeat;
+      position: absolute;
+      inset: 0;
+      opacity: 0.25;
+      z-index: 1;
+    }
+
+    .info-content {
+      position: relative;
+      z-index: 2;
+      max-width: 550px;
+      width: 100%;
+      margin: auto;
+    }
+
+    .info-section h1 {
+      font-size: 2.25rem;
+      color: #ff3b30;
+      margin-bottom: 1.5rem;
+      text-align: left;
+      font-weight: 700;
+    }
+
+    .info-section p {
+      font-size: 1.125rem;
+      color: #d1d5db;
+      margin-bottom: 2rem;
+      text-align: left;
+    }
+
+    .info-section ul {
+      list-style: none;
+      padding-left: 0;
+    }
+
+    .info-section li {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 0.875rem 1.5rem 0.875rem 2.75rem;
+      border-radius: 0.75rem;
+      margin-bottom: 0.75rem;
+      color: #d1d5db;
+      font-size: 1rem;
+      position: relative;
+      text-align: left;
+    }
+
+    .info-section li::before {
+      content: '✔';
+      position: absolute;
+      left: 0.75rem;
+      bottom: 0.5rem;
+      color: #ff6b00;
+      font-size: 1.25rem;
+    }
+
+    @media (max-width: 900px) {
+      .container {
+        flex-direction: column;
+      }
+
+      .register-section, .info-section {
+        padding: 1.5rem;
+      }
+
+      .register-content, .info-content {
+        max-width: 100%;
+      }
+
+      .register-card h2 {
+        font-size: 1.5rem;
+      }
+
+      .info-section h1 {
+        font-size: 1.75rem;
+      }
+    }
+.phone-wrapper {
+  display: flex;
+  gap: 0.5rem;
+  {% comment %} margin-bottom: 1rem; {% endcomment %}
+}
+
+.phone-wrapper select,
+.phone-wrapper input {
+  border: 1px solid #ff6b00;
+  border-radius: 0.5rem;
+  padding: 10px;
+  background-color: #2d3748;
+  color: #ffffff;
+  outline: none;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.phone-wrapper select {
+  width: 30%;
+  height:10%;
+  appearance: none;
+}
+
+.phone-wrapper input {
+  width: 65%;
+}
+
+.phone-wrapper select:focus,
+.phone-wrapper input:focus {
+  border-color: #ff3b30;
+  box-shadow: 0 0 0 3px rgba(255, 107, 0, 0.3);
+  </style>
+</head>
+<body>
+  <main class="container" role="main">
+    <section class="register-section" aria-labelledby="register-heading">
+      <video id="ecgVideo" autoplay loop muted playsinline aria-hidden="true">
+        <source src="/static/images/mtopen_3c156d2d90d5458e88c3fc9006ba4386_MTc1MDg0MjAwMA==_0210ffcf-b8a5-425d-53ee-6e32d8927b82.mp4" type="video/mp4">
+        Your browser does not support the video tag.
+      </video>
+      <div class="register-content">
+        <div class="logo" aria-label="ECG Databank logo">
+          <i class="fa-solid fa-heart-pulse glowing-icon" aria-hidden="true"></i> ECG Databank
+        </div>
+        <div class="register-card">
+          <h2 id="register-heading">Create Your Account</h2>
+          <p>Join ECG Databank to start managing your medical data securely.</p>
+
+          {% if messages %}
+            {% for message in messages %}
+              <div class="error-message" role="alert">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+
+          <form method="POST" action="{% url 'register' %}">
+            {% csrf_token %}
+            <label for="username">Full Name</label>
+            <input type="text" name="username" id="username" placeholder="Enter your full name" required aria-describedby="username-error">
+
+            <label for="email">Email</label>
+            <input type="email" name="email" id="email" placeholder="Enter your email" required aria-describedby="email-error">
+
+            <label for="phone">Phone</label>
+              <div class="phone-wrapper">
+                <select id="countryCode" name="countryCode" required class="w-1/3 p-2 border border-orange-500 rounded-md bg-gray-800 text-white">
+                  <option value="+91">+91 (IN)</option>
+                  <option value="+1">+1 (US)</option>
+                  <option value="+44">+44 (UK)</option>
+                  <option value="+61">+61 (AU)</option>
+                  <!-- Add more as needed -->
+                </select>
+                <input type="tel" name="phone" id="phone" placeholder="1234567890" maxlength="10"
+                      required class="w-2/3 p-2 border border-orange-500 rounded-md bg-gray-800 text-white"
+                      aria-describedby="phone-error">
+              </div>
+              <span id="phone-error" class="error-message hidden"></span>
+
+            <label for="password">Password</label>
+            <input type="password" name="password" id="password" placeholder="Enter your password" required aria-describedby="password-error">
+
+            <button type="submit" class="sign-up">Create Account</button>
+
+            {% if form.errors %}
+              <div class="error-message" id="username-error email-error phone-error password-error" role="alert">
+                Invalid input. Please check your details and try again.
+              </div>
+            {% endif %}
+          </form>
+          <p class="login-link">
+            Already have an account? <a href="{% url 'login' %}" aria-label="Sign in to your account">Sign in here</a>
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="info-section" aria-labelledby="info-heading">
+      <div class="info-content">
+        <h1 id="info-heading">Join Our Healthcare Network</h1>
+        <p>Create your account to access our comprehensive ECG management platform designed for medical professionals.</p>
+        <ul>
+          <li>Secure and HIPAA-compliant data storage</li>
+          <li>Real-time ECG analysis and reporting</li>
+          <li>Collaborate with specialists worldwide</li>
+          <li>24/7 technical support and training</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <script>
+   document.querySelector("form").addEventListener("submit", function (e) {
+  const phoneInput = document.getElementById("phone");
+  const phoneError = document.getElementById("phone-error");
+  const emailInput = document.getElementById("email");
+  const phoneValue = phoneInput.value.trim();
+  const emailValue = emailInput.value.trim();
+
+  let isValid = true;
+
+  // Reset error states
+  phoneError.textContent = "";
+  phoneError.classList.add("hidden");
+  phoneInput.setCustomValidity("");
+
+  //  Phone: Must be exactly 10 digits, all numeric
+  if (!/^\d{10}$/.test(phoneValue)) {
+    phoneError.textContent = "Phone number must be exactly 10 digits (0–9 only).";
+    phoneError.classList.remove("hidden");
+    phoneInput.setCustomValidity("Invalid phone number");
+    isValid = false;
+  }
+
+  //  Email: Must be valid Gmail only
+  if (!/^[a-zA-Z0-9._%+-]+@gmail\.com$/.test(emailValue)) {
+    emailInput.setCustomValidity("Enter a valid Gmail address.");
+    emailInput.reportValidity();
+    isValid = false;
+  } else {
+    emailInput.setCustomValidity(""); // Clear previous error
+  }
+
+  if (!isValid) e.preventDefault();
+});
+    document.addEventListener("DOMContentLoaded", () => {
+      // Ensure video plays on mobile devices
+      const video = document.getElementById("ecgVideo");
+      video.play().catch((error) => {
+        console.error("Video playback failed:", error);
+      });
+
+      // Fade out error messages
+      const messages = document.querySelectorAll(".error-message");
+      if (messages.length > 0) {
+        setTimeout(() => {
+          messages.forEach((msg) => {
+            msg.style.transition = "opacity 0.5s ease";
+            msg.style.opacity = "0";
+            setTimeout(() => msg.remove(), 500);
+          });
+        }, 1000);
+      }
+    });
+  </script>
+</body>
+</html>

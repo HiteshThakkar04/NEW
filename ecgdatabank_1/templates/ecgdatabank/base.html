@@ -1,0 +1,651 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}ECG Dashboard{% endblock %}</title>
+    <link rel="icon" href="{% static 'images/favicon.png' %}" type="image/x-icon">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* Define CSS variables for light and dark themes */
+        :root {
+            --background-color: #f9fafb;
+            --text-color: #333;
+            --sidebar-bg: linear-gradient(150deg, #1e3a8a, #764ba2);
+            --sidebar-text: #fff;
+            --stat-box-bg: #162459;
+            --highlight-color: #facc15;
+            --header-bg: #fff;
+            --header-text: #333;
+            --nav-link-hover: #3b82f6;
+            --small-text: #666;
+        }
+
+        [data-theme="dark"] {
+            --background-color: #1e2a44;
+            --text-color: #fff;
+            --sidebar-bg: linear-gradient(150deg, #1e3a8a, #764ba2);
+            --sidebar-text: #fff;
+            --stat-box-bg: #1e2a44;
+            --highlight-color: #facc15;
+            --header-bg: #1e2a44;
+            --header-text: #fff;
+            --nav-link-hover: #60a5fa;
+            --small-text: #fff;
+        }
+
+        body {
+            font-family: "Roboto", "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            margin: 0;
+            transition: all 0.3s ease;
+        }
+        .small-text {
+            color: var(--small-text);
+        }
+        .sidebar {
+            background: var(--sidebar-bg);
+            color: var(--sidebar-text);
+            height: 100vh;
+            padding: 1rem;
+            position: fixed;
+            width: 250px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            overflow: hidden;
+            transition: width 0.3s ease;
+        }
+
+        .sidebar.collapsed {
+            width: 80px;
+        }
+
+        .sidebar h4 {
+            margin-left: 10px;
+            transition: opacity 0.3s ease;
+        }
+
+        .nav-link {
+            color: var(--sidebar-text);
+            margin: 0.5rem 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.6rem 1rem;
+            border-radius: 5px;
+            transition: background 0.3s;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .nav-link i {
+            min-width: 20px;
+            text-align: center;
+        }
+
+        .nav-link span {
+            margin-left: 10px;
+        }
+
+        .nav-link:hover {
+            background-color: var(--nav-link-hover);
+        }
+
+        .stat-box,
+        .profile-card {
+            background-color: var(--stat-box-bg);
+            border-radius: 12px;
+            padding: 1rem;
+            color: var(--sidebar-text);
+            text-align: center;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .highlight {
+            color: var(--highlight-color);
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .toggle-btn {
+            background: none;
+            border: none;
+            color: var(--sidebar-text);
+            cursor: pointer;
+            transition: transform 0.3s;
+            text-align: center;
+        }
+
+        .sidebar.collapsed h4,
+        .sidebar.collapsed .nav-link span,
+        .sidebar.collapsed .stat-box,
+        .sidebar.collapsed .profile-card {
+            display: none;
+        }
+
+        .sidebar.collapsed .nav-link {
+            justify-content: center;
+            padding-left: 0;
+            padding-right: 0;
+        }
+
+        .sidebar.collapsed .nav-link i {
+            margin: 0 auto;
+        }
+
+        main {
+            margin-left: 250px;
+            transition: margin-left 0.3s ease;
+        }
+
+        .sidebar.collapsed + main {
+            margin-left: 80px;
+        }
+
+        header {
+            background-color: var(--header-bg);
+            padding: 15px 30px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: var(--header-text);
+        }
+
+        header .left-section {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        header .title {
+              font-family: "Roboto", "Helvetica Neue", Arial, sans-serif;
+            font-size: 25px;
+        }
+
+        header .actions i {
+            margin-left: 20px;
+            cursor: pointer;
+            color: var(--header-text);
+        }
+
+        #page-loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(249, 250, 251, 0.66); /* Light background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .ecg-loader {
+            width: 150px; /* Increased width */
+            height: 60px;
+            position: relative;
+        }
+
+        .ecg-loader svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .ecg-line {
+            fill: none;
+            stroke:rgb(227, 6, 6);
+            stroke-width: 3;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                stroke-dasharray: 0 100;
+                stroke-dashoffset: 0;
+            }
+            50% {
+                stroke-dasharray: 50 50;
+                stroke-dashoffset: -25;
+            }
+            100% {
+                stroke-dasharray: 0 100;
+                stroke-dashoffset: -50;
+            }
+        }
+
+        .theme-toggle i {
+            font-size: 1.2rem;
+            cursor: pointer;
+            color: var(--header-text);
+            transition: color 0.3s ease;
+        }
+
+        .theme-toggle i:hover {
+            color: var(--nav-link-hover);
+        }
+
+        .back-btn {
+            background: none;
+            border: none;
+            color: var(--header-text);
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+
+        .back-btn:hover {
+            color: var(--nav-link-hover);
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+
+<body>
+    <div class="sidebar d-flex flex-column" id="sidebar">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4 class="fw-bold m-0" id="sidebarTitle">ECG Data Bank</h4>
+            <button class="toggle-btn" id="toggleSidebar">
+                <i class="fas fa-angle-double-left"></i>
+            </button>
+        </div>
+
+        {% if user_session %}
+            <a href="{% url 'oom_ecg_index' %}" class="nav-link active">
+                <i class="fas fa-heart-pulse"></i><span>ECG Data</span>
+            </a>
+            <a href="{% url 'morphology_index' %}" class="nav-link">
+                <i class="fas fa-pencil-ruler"></i><span>Morphology Draw</span>
+            </a>
+            <a href="{% url 'analysis_index' %}" class="nav-link">
+                <i class="fas fa-chart-line"></i><span>Analysis Tool</span>
+            </a>
+            <a href="{% url 'report_index' %}" class="nav-link">
+                <i class="fas fa-chart-bar"></i><span>Dashboard</span>
+            </a>
+            <a href="{% url 'profile' %}" class="nav-link">
+                <i class="fa fa-cog" aria-hidden="true" ></i><span>Settings</span>
+            </a>
+        {% else %}
+            <p><a href="{% url 'login' %}">Login</a></p>
+        {% endif %}
+
+        <div class="ecg-stats mt-auto">
+            <div class="stat-box">
+                <div>Total Patients</div>
+                <div class="highlight" id="totalPatients">Loading...</div>
+            </div>
+            <div class="stat-box">
+                <div>Total Time</div>
+                <div class="highlight" id="totalTime">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <main>
+        <div id="page-loader">
+            <div class="ecg-loader">
+                <svg viewBox="0 0 100 60">
+                    <path class="ecg-line" d="M0 30 H20 L30 10 L40 50 L50 20 L60 40 L70 10 L80 30 H100"/>
+                </svg>
+            </div>
+        </div>
+
+      <header>
+            <div class="left-section">
+                {% if request.resolver_match.view_name not in 'oom_ecg_index,report_index,profile' %}
+                <button class="back-btn" onclick="window.location.href='{% if request.resolver_match.view_name == 'morphology_index' %}/morphology/{% elif request.resolver_match.view_name == 'analysis_index' %}/analysis/{% else %}/ommecgdata/{% endif %}'" aria-label="Go back">
+                    <i class="fas fa-arrow-left"></i>
+                </button>
+                {% endif %}
+                <div class="title">Arrhythmia & MI</div>
+            </div>
+            <div class="actions">
+                <div class="theme-toggle">
+                    <i class="fas fa-moon" id="theme-icon"></i>
+                </div>
+            </div>
+        </header> 
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+
+    <script>
+        // Advanced Alert System - Pure JavaScript
+        class AlertSystem {
+            constructor(options = {}) {
+                this.config = {
+                    autoClose: true,
+                    autoCloseDelay: 2000,
+                    maxAlerts: 5,
+                    position: 'top-right',
+                    animations: true,
+                    ...options
+                };
+                
+                this.alertCounter = 0;
+                this.alerts = new Map();
+                this.container = null;
+                
+                this.init();
+            }
+            
+            init() {
+                this.createContainer();
+                this.bindKeyboardShortcuts();
+            }
+            
+            createContainer() {
+                if (document.getElementById('alert-system-container')) return;
+                
+                this.container = document.createElement('div');
+                this.container.id = 'alert-system-container';
+                this.container.className = `alert-system-container position-${this.config.position}`;
+                document.body.appendChild(this.container);
+            }
+            
+            show(type, title, message, options = {}) {
+                const alertId = `alert-${++this.alertCounter}`;
+                const config = { ...this.config, ...options };
+                
+                // Limit max alerts
+                if (this.alerts.size >= this.config.maxAlerts) {
+                    const oldestAlert = this.alerts.keys().next().value;
+                    this.remove(oldestAlert);
+                }
+                
+                const alertElement = this.createAlertElement(alertId, type, title, message, config);
+                this.container.appendChild(alertElement);
+                
+                // Store alert reference
+                this.alerts.set(alertId, {
+                    element: alertElement,
+                    config: config,
+                    timer: null
+                });
+                
+                // Trigger show animation
+                requestAnimationFrame(() => {
+                    alertElement.classList.add('show');
+                });
+                
+                // Auto close if enabled
+                if (config.autoClose && !config.persistent) {
+                    this.setAutoClose(alertId, config.autoCloseDelay || this.config.autoCloseDelay);
+                }
+                
+                // Add progress bar animation
+                if (config.progress && config.autoClose) {
+                    this.animateProgress(alertId, config.autoCloseDelay || this.config.autoCloseDelay);
+                }
+                
+                return alertId;
+            }
+            
+            createAlertElement(id, type, title, message, config) {
+                const alert = document.createElement('div');
+                alert.className = `alert-item type-${type}`;
+                alert.id = id;
+                
+                const icons = {
+                    success: '<svg viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>',
+                    error: '<svg viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"/></svg>',
+                    warning: '<svg viewBox="0 0 20 20"><path d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"/></svg>',
+                    info: '<svg viewBox="0 0 20 20"><path d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"/></svg>',
+                    primary: '<svg viewBox="0 0 20 20"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+                    secondary: '<svg viewBox="0 0 20 20"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/><path d="M10 2C5.58 2 2 5.58 2 10s3.58 8 8 8 8-3.58 8-8-3.58-8-8-8zM8 13a1 1 0 11-2 0 1 1 0 012 0zm4 0a1 1 0 11-2 0 1 1 0 012 0z"/></svg>'
+                };
+                
+                let html = `
+                    <div class="alert-content">
+                        <div class="alert-icon">
+                            ${icons[type] || icons.info}
+                        </div>
+                        <div class="alert-body">
+                            <div class="alert-title">${title}</div>
+                            <div class="alert-message">${message}</div>
+                `;
+                
+                // Add actions
+                if (config.actions && config.actions.length > 0) {
+                    html += '<div class="alert-actions">';
+                    config.actions.forEach((action, index) => {
+                        html += `
+                            <button class="alert-action ${action.type || 'primary'}" 
+                                    onclick="window.alertSystem.handleAction('${id}', ${index})">
+                                ${action.text}
+                            </button>
+                        `;
+                    });
+                    html += '</div>';
+                }
+                
+                html += '</div>';
+                
+                // Add close button
+                if (!config.persistent) {
+                    html += `
+                        <button class="alert-close" onclick="window.alertSystem.remove('${id}')">
+                            <svg viewBox="0 0 20 20">
+                                <path d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"/>
+                            </svg>
+                        </button>
+                    `;
+                }
+                
+                html += '</div>';
+                
+                // Add progress bar
+                if (config.progress) {
+                    html += '<div class="alert-progress" style="width: 100%"></div>';
+                }
+                
+                alert.innerHTML = html;
+                
+                // Store action handlers
+                if (config.actions) {
+                    alert._actionHandlers = config.actions.map(action => action.handler);
+                }
+                
+                return alert;
+            }
+            
+            setAutoClose(alertId, delay) {
+                const alert = this.alerts.get(alertId);
+                if (!alert) return;
+                
+                alert.timer = setTimeout(() => {
+                    this.remove(alertId);
+                }, delay);
+            }
+            
+            animateProgress(alertId, duration) {
+                const alert = this.alerts.get(alertId);
+                if (!alert) return;
+                
+                const progressBar = alert.element.querySelector('.alert-progress');
+                if (!progressBar) return;
+                
+                let width = 100;
+                const interval = setInterval(() => {
+                    width -= (100 / (duration / 100));
+                    progressBar.style.width = Math.max(0, width) + '%';
+                    
+                    if (width <= 0) {
+                        clearInterval(interval);
+                    }
+                }, 100);
+            }
+            
+            remove(alertId) {
+                const alert = this.alerts.get(alertId);
+                if (!alert) return;
+                
+                // Clear timer
+                if (alert.timer) {
+                    clearTimeout(alert.timer);
+                }
+                
+                // Animate out
+                alert.element.classList.add('hide');
+                
+                setTimeout(() => {
+                    if (alert.element.parentNode) {
+                        alert.element.parentNode.removeChild(alert.element);
+                    }
+                    this.alerts.delete(alertId);
+                }, 300);
+            }
+            
+            removeAll() {
+                const alertIds = Array.from(this.alerts.keys());
+                alertIds.forEach((id, index) => {
+                    setTimeout(() => {
+                        this.remove(id);
+                    }, index * 100);
+                });
+            }
+            
+            handleAction(alertId, actionIndex) {
+                const alert = this.alerts.get(alertId);
+                if (!alert || !alert.element._actionHandlers) return;
+                
+                const handler = alert.element._actionHandlers[actionIndex];
+                if (typeof handler === 'function') {
+                    handler(alertId);
+                } else if (typeof handler === 'string') {
+                    try {
+                        eval(handler);
+                    } catch (e) {
+                        console.error('Error executing action handler:', e);
+                    }
+                }
+            }
+            
+            bindKeyboardShortcuts() {
+                document.addEventListener('keydown', (e) => {
+                    // Escape to clear all
+                    if (e.key === 'Escape') {
+                        this.removeAll();
+                    }
+                    
+                    // Ctrl/Cmd + number for quick alerts
+                    if ((e.ctrlKey || e.metaKey) && e.key >= '1' && e.key <= '6') {
+                        e.preventDefault();
+                        const types = ['success', 'error', 'warning', 'info', 'primary', 'secondary'];
+                        const type = types[parseInt(e.key) - 1];
+                        this.show(type, `${type.charAt(0).toUpperCase() + type.slice(1)}`, `Quick ${type} alert!`);
+                    }
+                });
+            }
+            
+            // Utility methods
+            success(title, message, options = {}) {
+                return this.show('success', title, message, options);
+            }
+            
+            error(title, message, options = {}) {
+                return this.show('error', title, message, options);
+            }
+            
+            warning(title, message, options = {}) {
+                return this.show('warning', title, message, options);
+            }
+            
+            info(title, message, options = {}) {
+                return this.show('info', title, message, options);
+            }
+            
+            primary(title, message, options = {}) {
+                return this.show('primary', title, message, options);
+            }
+            
+            secondary(title, message, options = {}) {
+                return this.show('secondary', title, message, options);
+            }
+        }
+
+        // Initialize global alert system
+        window.alertSystem = new AlertSystem({
+            autoCloseDelay: 2000,
+            progress: true
+        });
+
+        function fetchData() {
+            fetch("{% url 'total_data' %}", {
+                headers: { "X-Requested-With": "XMLHttpRequest" }
+            })
+            .then(response => response.ok ? response.json() : Promise.reject(response.status))
+            .then(data => {
+                if (data.total_patients !== undefined) {
+                    document.getElementById("totalPatients").textContent = data.total_patients;
+                    localStorage.setItem("totalPatients", data.total_patients);               
+               }
+                if (data.total_time !== undefined) {
+                    document.getElementById("totalTime").textContent = data.total_time + " mins";
+                    localStorage.setItem("totalTime", data.total_time);
+                }
+            })
+            .catch(error => console.error("Error fetching data:", error));
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+            const storedPatients = localStorage.getItem("totalPatients");
+            const storedTime = localStorage.getItem("totalTime");
+
+            if (storedPatients) document.getElementById("totalPatients").textContent = storedPatients;
+            if (storedTime) document.getElementById("totalTime").textContent = storedTime + " mins";
+
+            fetchData();
+            setInterval(fetchData, 100000000);
+
+            const loader = document.getElementById("page-loader");
+            document.querySelectorAll("a").forEach(link => {
+                link.addEventListener("click", function () {
+                    if (link.href && !link.href.startsWith("javascript:") && !link.target) {
+                        loader.style.display = "flex";
+                    }
+                });
+            });
+
+            window.addEventListener("load", () => loader.style.display = "none");
+
+            document.getElementById('toggleSidebar').addEventListener('click', function () {
+                const sidebar = document.getElementById('sidebar');
+                sidebar.classList.toggle('collapsed');
+
+                const icon = this.querySelector('i');
+                icon.classList.toggle('fa-angle-double-left');
+                icon.classList.toggle('fa-angle-double-right');
+            });
+
+            // Theme toggle functionality
+            const themeIcon = document.getElementById('theme-icon');
+            const currentTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', currentTheme);
+            themeIcon.className = currentTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+
+            themeIcon.addEventListener('click', () => {
+                const newTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-theme', newTheme);
+                localStorage.setItem('theme', newTheme);
+                themeIcon.className = newTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+            });
+        });
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>
