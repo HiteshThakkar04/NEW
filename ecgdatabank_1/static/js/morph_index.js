@@ -306,7 +306,91 @@ async function hide() {
     }
     document.getElementById('mainTitle').style.display = 'flex';
 }
+function originalimage() {
+    const fileInput = document.getElementById('fileInput');
+    const loader = document.getElementById('page-loader');
 
+    if (fileInput.files.length > 0) {
+        loader.style.display = 'flex';  // Show loader
+
+        const file = fileInput.files[0];
+        const reader = new FileReader();
+
+        reader.onload = function(event) {
+            // Create overlay
+            const overlay = document.createElement('div');
+            overlay.id = 'image-overlay';
+            overlay.style.position = 'fixed';
+            overlay.style.top = 0;
+            overlay.style.left = 0;
+            overlay.style.width = '100vw';
+            overlay.style.height = '100vh';
+            overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
+            overlay.style.zIndex = 999;
+            overlay.style.display = 'flex';
+            overlay.style.justifyContent = 'center';
+            overlay.style.alignItems = 'center';
+            overlay.style.transition = 'opacity 0.3s ease';
+            overlay.style.opacity = 0;
+
+            // Create modal container
+            const modal = document.createElement('div');
+            modal.style.position = 'relative';
+            modal.style.backgroundColor = '#fff';
+            modal.style.padding = '20px';
+            modal.style.borderRadius = '10px';
+            modal.style.boxShadow = '0 8px 16px rgba(0, 0, 0, 0.3)';
+            modal.style.maxWidth = '90vw';
+            modal.style.maxHeight = '90vh';
+            modal.style.overflow = 'auto';
+            modal.style.animation = 'fadeIn 0.3s ease';
+
+            // Close button
+            const closeButton = document.createElement('button');
+            closeButton.innerHTML = '&times;';
+            closeButton.style.position = 'absolute';
+            closeButton.style.top = '10px';
+            closeButton.style.right = '15px';
+            closeButton.style.background = 'transparent';
+            closeButton.style.border = 'none';
+            closeButton.style.fontSize = '24px';
+            closeButton.style.cursor = 'pointer';
+
+            // Append close handler
+            closeButton.onclick = () => document.body.removeChild(overlay);
+
+            // Append ESC key close support
+            const escListener = (e) => {
+                if (e.key === 'Escape') {
+                    document.body.removeChild(overlay);
+                    document.removeEventListener('keydown', escListener);
+                }
+            };
+            document.addEventListener('keydown', escListener);
+
+            // Create image
+            const img = new Image();
+            img.src = event.target.result;
+            img.style.maxWidth = '100%';
+            img.style.maxHeight = '80vh';
+            img.style.borderRadius = '5px';
+
+            // Assemble
+            modal.appendChild(closeButton);
+            modal.appendChild(img);
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+
+            // Trigger fade-in
+            setTimeout(() => overlay.style.opacity = 1, 50);
+
+            // Hide loader
+            loader.style.display = 'none';
+        };
+
+        reader.readAsDataURL(file);
+    }
+}
 const canvas = document.getElementById('drawingCanvas');
 if (canvas) {
     canvas.style.touchAction = 'none';

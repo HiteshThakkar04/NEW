@@ -680,11 +680,18 @@ h2 {
             <div class="file-input-container">                
                 <label for="fileInput" class="file-label" id="fileLabel" onclick="event.stopPropagation();">Click to Upload ECG Image</label>
                 <input type="file" id="fileInput" class="file-input" accept="image/jpeg,image/png" onchange="handleFileSelection(this)">
+                {% comment %} <button type="button" class="btn btn-primary mt-3" onclick="uploadFile()">Upload</button> {% endcomment %}
             </div>
         </form>
 
         <div class="plot" id="plot" style="display: none;">
-            <h3>ECG Signal</h3>
+             <h3>
+              ECG Signal
+            <a onclick="originalimage()" 
+                style="display: inline-block; margin-left: 10px; color: #007bff; text-decoration: none; font-weight: 500; cursor: pointer;">
+                <i class="fa-solid fa-image"></i>
+            </a>
+            </h3>            
             <div id="ecgChart"></div>
         </div>
 
@@ -763,8 +770,9 @@ h2 {
 {% endblock %}
 
 {% block scripts %}
-<script>var uploadFileUrl = "{% url 'uploaded_file' %}"</script>
+
 <script src="{% static 'js/morph_index.js' %}"></script>
+<script>var uploadFileUrl = "{% url 'uploaded_file' %}"</script>
 <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 {% endblock %}

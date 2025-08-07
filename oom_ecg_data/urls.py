@@ -11,13 +11,11 @@ urlpatterns = [
     path("fetch_random_ecg_data/<str:arrhythmia>/",views.fetch_random_ecg_data, name="fetch_random_ecg_data"),
     path("ecg_details/<str:arrhythmia>/",views.ecg_details,name="ecg_details"),
     path('select-arrhythmia/', views.select_arrhythmia, name='select_arrhythmia'),
-    path("get_object_id/", views.get_object_ids, name="get_object_id"),
+    path("get_object_id/", views.get_object_id, name="get_object_id"),
     path('edit_data/',views.edit_datas, name="edit_data"),
     path('selecteddownload/', views.selecteddownload, name="selecteddownload"),
     path('delete_data/',views.delete_data, name='delete_data'), 
     path('process_ecg/',views.process_and_return_ecg, name='process_ecg'),
-    path('delete_file/',views.delete_file, name='delete_file'),
     path('get_pqrst_data/', views.get_pqrst_data, name='get_pqrst_data'),
-    path('rytham_data_insert/', views.rytham_data_insert, name='rytham_data_insert'),
-
+    path("get_multiple_segments/", views.get_multiple_segments, name="get_multiple_segments"),
 ]

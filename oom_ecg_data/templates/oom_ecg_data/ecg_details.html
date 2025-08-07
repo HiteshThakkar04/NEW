@@ -1,3 +1,4 @@
+
 {% extends 'ecgdatabank/base.html' %}
 {% load static %}
 {% block title %}Analysis Tool{% endblock %}
@@ -1091,15 +1092,12 @@ body[data-theme="dark"] .scroll-to-top:hover {
             <td><strong>{{ forloop.counter }}</strong></td>
             <td>{{ data.PatientID }}</td>
             <td>
-              <span class="badge">{{ data.Lead }}</span>
+              <span>{{ data.Lead }}</span>
             </td>
             <td>{{ data.Arrhythmia }}</td>
             <td>{{ data.Frequency }}</td>
             <td>
               <div class="action-buttons">
-                <button class="icon-btn view" title="View ECG Signal">
-                  <i class="fas fa-eye view-btn" data-id="{{ data.object_id }}"></i>
-                </button>
                 <button class="icon-btn delete" title="Delete Record">
                   <i class="fas fa-trash delete-btn" data-id="{{ data.object_id }}" data-collection="{{ data.collection_name }}"></i>
                 </button>
@@ -1165,8 +1163,8 @@ body[data-theme="dark"] .scroll-to-top:hover {
                     <button class="btn btn-secondary" id="closeBtn">
                       <i class="fas fa-times"></i>Close
                     </button>
-                  </div>
                 </div>
+              </div>
             </td>
           </tr>
           {% empty %}
@@ -1206,44 +1204,4 @@ body[data-theme="dark"] .scroll-to-top:hover {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  const scrollToTopBtn = document.getElementById('scrollToTop');
-  
-  // Show/hide scroll-to-top button based on scroll position (20% of document height)
-  window.addEventListener('scroll', function() {
-    const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
-    const scrollPosition = window.scrollY;
-    const showThreshold = scrollHeight * 0.2; // 20% of scrollable height
-    
-    if (scrollPosition > showThreshold) {
-      scrollToTopBtn.classList.add('visible');
-    } else {
-      scrollToTopBtn.classList.remove('visible');
-    }
-  });
-
-  // Scroll to top and close all plots when button is clicked
-  scrollToTopBtn.addEventListener('click', function() {
-    // Add clicked class for rotation animation
-    scrollToTopBtn.classList.add('clicked');
-    
-    // Close all open plots
-    document.querySelectorAll('.plot-row').forEach(plotRow => {
-      plotRow.style.display = 'none';
-    });
-    
-    // Smooth scroll to top
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    });
-
-    // Remove clicked class after animation
-    setTimeout(() => {
-      scrollToTopBtn.classList.remove('clicked');
-    }, 500); // Matches --transition-slow duration
-  });
-});
-</script>
 {% endblock %}

@@ -65,7 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   };
 
-const setupArrhythmiaDropdown = (arrhythmiaId, subArrhythmiaId) => {
+  const setupArrhythmiaDropdown = (arrhythmiaId, subArrhythmiaId) => {
     const arrhythmiaSelect = document.getElementById(arrhythmiaId);
     const subArrhythmiaSelect = document.getElementById(subArrhythmiaId);
     if (!arrhythmiaSelect || !subArrhythmiaSelect) return;
@@ -78,11 +78,11 @@ const setupArrhythmiaDropdown = (arrhythmiaId, subArrhythmiaId) => {
         });
         subArrhythmiaSelect.value = '';
     });
-};
+  };
 
-setupArrhythmiaDropdown('arrhythmiaMI', 'subArrhythmia');
-setupArrhythmiaDropdown('newarrhythmiaMI', 'newsubArrhythmia');
-setupArrhythmiaDropdown('newarrhythmiaMI_multiple', 'newsubArrhythmia_multiple'); 
+  setupArrhythmiaDropdown('arrhythmiaMI', 'subArrhythmia');
+  setupArrhythmiaDropdown('newarrhythmiaMI', 'newsubArrhythmia');
+  setupArrhythmiaDropdown('newarrhythmiaMI_multiple', 'newsubArrhythmia_multiple'); 
 
 const attachRowEventListeners = () => {
   // Only attach once
@@ -106,7 +106,6 @@ const attachRowEventListeners = () => {
 
     const objectId = row.dataset.objectId;
     if (window.loadingPlots.has(objectId)) {
-      console.log(`[Prevented Duplicate] Already loading plot for ${objectId}`);
       return;
     }
 
@@ -117,6 +116,7 @@ const attachRowEventListeners = () => {
     const leadNumeric = row.getAttribute('data-lead-value');
     const tableArrhythmia = row.cells[3].textContent.trim();
     const frequency = row.cells[4].textContent.trim();
+    const samplesTaken = parseInt(row.getAttribute("data-samples-taken")) || 2000;
     sessionStorage.setItem('objectId', objectId);
 
     const plotRow = document.querySelector(`tr.plot-row[data-plot-id="${objectId}"]`);
@@ -142,7 +142,6 @@ const attachRowEventListeners = () => {
     let arrhythmiaSelect = document.getElementById(`Arrhythmia-${objectId}`);
     let downloadTypeSelect = document.getElementById(`downloadType-${objectId}`);
 
-    // Log if closeBtn is not found for debugging
     if (!closeBtn) {
       console.warn(`Close button closeBtn-${objectId} not found in DOM.`);
     }
@@ -168,7 +167,8 @@ const attachRowEventListeners = () => {
             lead: leadNumeric,
             tableArrhythmia,
             selectedArrhythmia: sessionStorage.getItem('selectedArrhythmia') || tableArrhythmia,
-            frequency
+            frequency,
+            samplesTaken: samplesTaken
           })
         });
 
@@ -369,125 +369,124 @@ const attachRowEventListeners = () => {
               alertSystem.warning('Warning','Unsupported lead type.');
               return;
 
-            case 'plot_png':
+          case 'plot_png':
               const plotDivId = `plot-${objectId}`;
               const plotDiv = document.getElementById(plotDivId);
               if (!plotDiv || plotDiv.children.length === 0) {
                 alertSystem.error('Error',"ECG plot not loaded yet. Please wait or try again.");
                 return;
               }
-                let leadCount = leadNumeric || 12; // Default to 12 leads if not specified
-                // Set dimensions based on lead count
-                let width, height;
-                switch (parseInt(leadCount)) {
-                  case 2: // Single-lead ECG
-                    width = 1000;
-                    height = 400;
-                    break;
-                  case 7: // 7-lead ECG
-                    width = 1200;
-                    height = 1000;
-                    break;
-                  case 12: // 12-lead ECG (standard)
-                    width = 1600;
-                    height = 1500;
-                    break;
-                  default: // Fallback for other configurations
-                    width = 1600;
-                    height = 1000;
-                }
+              let leadCount = leadNumeric || 12; // Default to 12 leads if not specified
+              // Set dimensions based on lead count
+              let width, height;
+              switch (parseInt(leadCount)) {
+                case 2: // Single-lead ECG
+                  width = 1000;
+                  height = 400;
+                  break;
+                case 7: // 7-lead ECG
+                  width = 1200;
+                  height = 1000;
+                  break;
+                case 12: // 12-lead ECG (standard)
+                  width = 1600;
+                  height = 1500;
+                  break;
+                default: // Fallback for other configurations
+                  width = 1600;
+                  height = 1000;
+              }
+      
+              Plotly.downloadImage(plotDiv, {
+                format: 'png',
+                filename: `ecg_plot_${patientId}_leads_${leadCount}`,
+                width: width,
+                height: height,
+                scale: 2
+              });
+              return;
+          case 'pqrst_csv':
+              // Use updated PQRST indices if available, otherwise fall back to server-provided data
+              let updatedPqrstData = {};
+              if (leadNumeric === '2') {
+                  updatedPqrstData = window.ecgData[objectId]?.updatedPQRST || window.ecgData[objectId]?.pqrst || {};
+              } else if (leadNumeric === '7' || leadNumeric === '12') {
+                  updatedPqrstData = window.ecgData[objectId]?.allPeaks || window.ecgData[objectId]?.pqrst || {};
+              }
 
-                Plotly.downloadImage(plotDiv, {
-                  format: 'png',
-                  filename: `ecg_plot_${patientId}_leads_${leadCount}`,
-                  width: width,
-                  height: height,
-                  scale: 2
-                });
-            return;
+              // Validate PQRST data
+              const requiredKeys = leadNumeric === '2' 
+                  ? ['p_points', 'q_points', 'r_peaks', 's_points', 't_points']
+                  : ['p', 'q', 'r', 's', 't'];
 
-            case 'pqrst_csv':
-                // Use updated PQRST indices if available, otherwise fall back to server-provided data
-                let updatedPqrstData = {};
-                if (leadNumeric === '2') {
-                    updatedPqrstData = window.ecgData[objectId]?.updatedPQRST || window.ecgData[objectId]?.pqrst || {};
-                } else if (leadNumeric === '7' || leadNumeric === '12') {
-                    updatedPqrstData = window.ecgData[objectId]?.allPeaks || window.ecgData[objectId]?.pqrst || {};
-                }
+              const isValid = leadNumeric === '2'
+                  ? requiredKeys.every(key => Array.isArray(updatedPqrstData[key]) && updatedPqrstData[key].length > 0)
+                  : Object.keys(updatedPqrstData).length > 0 && requiredKeys.every(key => 
+                      Array.isArray(updatedPqrstData[Object.keys(updatedPqrstData)[0]][key]) && 
+                      updatedPqrstData[Object.keys(updatedPqrstData)[0]][key].length > 0);
 
-                // Validate PQRST data
-                const requiredKeys = leadNumeric === '2' 
-                    ? ['p_points', 'q_points', 'r_peaks', 's_points', 't_points']
-                    : ['p', 'q', 'r', 's', 't'];
+              if (!isValid || Object.keys(updatedPqrstData).length === 0) {
+                  console.error('Invalid PQRST data:', updatedPqrstData);
+                  alertSystem.error('Error', 'No valid PQRST data available for download. Please ensure ECG data is loaded correctly.');
+                  if (pageLoader) pageLoader.style.display = 'none';
+                  return;
+              }
 
-                const isValid = leadNumeric === '2'
-                    ? requiredKeys.every(key => Array.isArray(updatedPqrstData[key]) && updatedPqrstData[key].length > 0)
-                    : Object.keys(updatedPqrstData).length > 0 && requiredKeys.every(key => 
-                        Array.isArray(updatedPqrstData[Object.keys(updatedPqrstData)[0]][key]) && 
-                        updatedPqrstData[Object.keys(updatedPqrstData)[0]][key].length > 0);
+              // Generate CSV content client-side
+              let csvContent = 'P_index,Q_index,R_index,S_index,T_index\n';
+              if (leadNumeric === '2') {
+                  // For 2-lead ECG, generate column-based CSV
+                  const { p_points, q_points, r_peaks, s_points, t_points } = updatedPqrstData;
+                  
+                  // Find the minimum length of PQRST arrays to align rows
+                  const minLength = Math.min(
+                      p_points.length,
+                      q_points.length,
+                      r_peaks.length,
+                      s_points.length,
+                      t_points.length
+                  );
 
-                if (!isValid || Object.keys(updatedPqrstData).length === 0) {
-                    console.error('Invalid PQRST data:', updatedPqrstData);
-                    alertSystem.error('Error', 'No valid PQRST data available for download. Please ensure ECG data is loaded correctly.');
-                    if (pageLoader) pageLoader.style.display = 'none';
-                    return;
-                }
+                  // Generate rows, padding with empty strings for missing values
+                  for (let i = 0; i < minLength; i++) {
+                      const p = (typeof p_points[i] === 'number' && !isNaN(p_points[i])) ? p_points[i] : '';
+                      const q = (typeof q_points[i] === 'number' && !isNaN(q_points[i])) ? q_points[i] : '';
+                      const r = (typeof r_peaks[i] === 'number' && !isNaN(r_peaks[i])) ? r_peaks[i] : '';
+                      const s = (typeof s_points[i] === 'number' && !isNaN(s_points[i])) ? s_points[i] : '';
+                      const t = (typeof t_points[i] === 'number' && !isNaN(t_points[i])) ? t_points[i] : '';
+                      csvContent += `${p},${q},${r},${s},${t}\n`;
+                  }
+              } else if (leadNumeric === '7' || leadNumeric === '12') {
+                  // For 7/12-lead ECG, generate column-based CSV like 2-lead
+                  const firstLead = Object.keys(updatedPqrstData)[0]; // Use first lead's data
+                  const { p, q, r, s, t } = updatedPqrstData[firstLead] || {};
 
-                // Generate CSV content client-side
-                let csvContent = 'P_index,Q_index,R_index,S_index,T_index\n';
-                if (leadNumeric === '2') {
-                    // For 2-lead ECG, generate column-based CSV
-                    const { p_points, q_points, r_peaks, s_points, t_points } = updatedPqrstData;
-                    
-                    // Use the maximum length to include all peaks
-                    const maxLength = Math.max(
-                        p_points.length,
-                        q_points.length,
-                        r_peaks.length,
-                        s_points.length,
-                        t_points.length
-                    );
+                  // Find the minimum length of PQRST arrays to align rows
+                  const minLength = Math.min(
+                      (p || []).length,
+                      (q || []).length,
+                      (r || []).length,
+                      (s || []).length,
+                      (t || []).length
+                  );
 
-                    // Generate rows, padding with empty strings for missing values
-                    for (let i = 0; i < maxLength; i++) {
-                        const p = (typeof p_points[i] === 'number' && !isNaN(p_points[i])) ? p_points[i] : '';
-                        const q = (typeof q_points[i] === 'number' && !isNaN(q_points[i])) ? q_points[i] : '';
-                        const r = (typeof r_peaks[i] === 'number' && !isNaN(r_peaks[i])) ? r_peaks[i] : '';
-                        const s = (typeof s_points[i] === 'number' && !isNaN(s_points[i])) ? s_points[i] : '';
-                        const t = (typeof t_points[i] === 'number' && !isNaN(t_points[i])) ? t_points[i] : '';
-                        csvContent += `${p},${q},${r},${s},${t}\n`;
-                    }
-                } else if (leadNumeric === '7' || leadNumeric === '12') {
-                    // For 7/12-lead ECG, use the first lead's data since peaks are identical across leads
-                    const firstLead = Object.keys(updatedPqrstData)[0];
-                    const { p, q, r, s, t } = updatedPqrstData[firstLead] || {};
-
-                    // Use the maximum length to include all peaks
-                    const maxLength = Math.max(
-                        (p || []).length,
-                        (q || []).length,
-                        (r || []).length,
-                        (s || []).length,
-                        (t || []).length
-                    );
-
-                    // Generate rows, padding with empty strings for missing values
-                    for (let i = 0; i < maxLength; i++) {
-                        const pVal = (typeof p[i] === 'number' && !isNaN(p[i])) ? p[i] : '';
-                        const qVal = (typeof q[i] === 'number' && !isNaN(q[i])) ? q[i] : '';
-                        const rVal = (typeof r[i] === 'number' && !isNaN(r[i])) ? r[i] : '';
-                        const sVal = (typeof s[i] === 'number' && !isNaN(s[i])) ? s[i] : '';
-                        const tVal = (typeof t[i] === 'number' && !isNaN(t[i])) ? t[i] : '';
-                        csvContent += `${pVal},${qVal},${rVal},${sVal},${tVal}\n`;
-                    }
-                }
+                  // Generate rows, padding with empty strings for missing values
+                  for (let i = 0; i < minLength; i++) {
+                      const pVal = (typeof p[i] === 'number' && !isNaN(p[i])) ? p[i] : '';
+                      const qVal = (typeof q[i] === 'number' && !isNaN(q[i])) ? q[i] : '';
+                      const rVal = (typeof r[i] === 'number' && !isNaN(r[i])) ? r[i] : '';
+                      const sVal = (typeof s[i] === 'number' && !isNaN(s[i])) ? s[i] : '';
+                      const tVal = (typeof t[i] === 'number' && !isNaN(t[i])) ? t[i] : '';
+                      csvContent += `${pVal},${qVal},${rVal},${sVal},${tVal}\n`;
+                  }
+              }
 
               // Download CSV
               downloadCSV(csvContent, `pqrst_${patientId}.csv`);
               if (pageLoader) pageLoader.style.display = 'none';
-            return;
-            
-            case 'selected_data':
+              return;
+              
+          case 'selected_data':
                 if (!window.selectedData) {
                   alertSystem.warning('Warning', 'No data selected for download.');
                   return;
@@ -526,41 +525,41 @@ const attachRowEventListeners = () => {
                   console.error('Error downloading file:', error);
                   alertSystem.error('Error', 'downloading file.');
                 }
-            return;
-              
+                return;
+                
             default:
               throw new Error('Invalid download type selected.');
           }
 
-            const response = await fetch(endpoint, {
+          const response = await fetch(endpoint, {
             method: 'POST',
             headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCSRFToken()
+              'Content-Type': 'application/json',
+              'X-CSRFToken': getCSRFToken()
             },
             body: JSON.stringify(dataToDownload)
-            });
+          });
 
-            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+          if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
 
-              const blob = await response.blob();
-              const url = window.URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = filename;
-              document.body.appendChild(a);
-              a.click();
-              window.URL.revokeObjectURL(url);
-              document.body.removeChild(a);
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
 
-             await delay(100);
-        } catch (error) {
-        console.error('Error downloading:', error);
-        alertSystem.error('Error', `downloading ${downloadType.replace('_', ' ')}: ${error.message}`);
-        } finally {
-        if (pageLoader) pageLoader.style.display = 'none';
-        }
-        }, 100));
+          await delay(100);
+} catch (error) {
+    console.error('Error downloading:', error);
+    alertSystem.error('Error', `downloading ${downloadType.replace('_', ' ')}: ${error.message}`);
+  } finally {
+    if (pageLoader) pageLoader.style.display = 'none';
+  }
+}, 100));
     }
 
    if (closeButton) {
@@ -628,14 +627,17 @@ const attachRowEventListeners = () => {
   document.querySelectorAll(selectors.cards).forEach(card => handleCardClick(card, 'card'));
   document.querySelectorAll(selectors.cardTiles).forEach(card => handleCardClick(card, 'card-tile'));
 
- const updateTableWithData = (data) => {
+const updateTableWithData = async (data) => {
   const tableBody = document.getElementById('ecgTableBody');
-  if (!tableBody) return console.error('Table body element (ecgTableBody) not found.');
+  if (!tableBody) {
+  console.error('Table body not found! Cannot update table with data.');
+  return;  // Prevent further execution
+  }
 
-  tableBody.innerHTML = '';
+  tableBody.innerHTML = '';  
   data.forEach((row, index) => {
     const rowHtml = `
-      <tr data-object-id="${row.object_id || ''}" data-lead-value="${row.LeadNumeric || row.Lead || ''}">
+      <tr data-object-id="${row.object_id || ''}" data-lead-value="${row.LeadNumeric || row.Lead || ''}" data-samples-taken="${row.samples_taken || 0}">
         <td>${(currentPage - 1) * 10 + (index + 1)}</td>
         <td>${row.PatientID || ''}</td>
         <td>${row.Lead || ''}</td>
@@ -978,7 +980,7 @@ const attachRowEventListeners = () => {
       if (srNoCell) srNoCell.textContent = (currentPage - 1) * 10 + (index + 1);
     });
   };
-let isPlotting = false;
+
 const fetchAndPlotECG = async (ecgData, leadType, patientId, objectId, leadConfig) => {
     const pageLoader = document.getElementById('page-loader');
     if (pageLoader) pageLoader.style.display = 'flex';
@@ -1212,7 +1214,17 @@ const fetchAndPlotECG = async (ecgData, leadType, patientId, objectId, leadConfi
           }
         });
       });
+ const firstLead = leadNames[0];
+      const dataLength = leadData[firstLead].length;
 
+      const windowSize = 2000;  // for future scroll/pan if needed
+
+      const rawDtick = (dataLength < windowSize)
+        ? Math.round(dataLength / 25)   // e.g., 500/25 = 20
+        : 100;
+
+      const xDtick = Math.ceil(rawDtick / 5) * 5;  // round to nearest 5
+      const xMinorDtick = xDtick / 5;
       const layout = {
         grid: { rows: gridRows, columns: 1, pattern: 'independent' },
         height: 500 * gridRows,
@@ -1228,26 +1240,27 @@ const fetchAndPlotECG = async (ecgData, leadType, patientId, objectId, leadConfi
         const axisX = `xaxis${idx + 1}`;
         const axisY = `yaxis${idx + 1}`;
         layout[axisX] = {
-          range: [0, leadData[lead].length],
+          range: [0, leadData[lead].length<= windowSize ?leadData[lead].length:windowSize],
           title: { text: 'Time Index', standoff: 20, font: { size: 12 } },
           showgrid: true,
-          gridcolor: 'rgba(242, 74, 74, 0.93)',
+          gridcolor: 'rgba(233, 18, 18,, 0.93)',
           gridwidth: 0.6,
           zeroline: false,
-          dtick: 100,
+          dtick: xDtick,
           tickfont: { size: 12 },
-          minor: { showgrid: true, gridcolor: 'rgba(255, 192, 203, 0.93)', gridwidth: 0.5 }
+          minor: { showgrid: true, gridcolor: 'rgba(245, 199, 207, 0.93)', gridwidth: 0.3,dtick: xMinorDtick,tick0: 0,
+          },
+          fixedrange: false 
         };
         layout[axisY] = {
           range: [0, 4],
           title: { text: lead, standoff: 15, font: { size: 14 } },
           showgrid: true,
-          gridcolor: 'rgba(242, 74, 74, 0.93)',
-          gridwidth: 0.6,
+          gridcolor: 'rgba(233, 18, 18, 0.93)',
           zeroline: false,
           dtick: 0.5,
           tickfont: { size: 12 },
-          minor: { showgrid: true, gridcolor: 'rgba(255, 192, 203, 0.93)', gridwidth: 0.3 }
+          minor: { showgrid: true, gridcolor: 'rgba(245, 199, 207, 0.93)', gridwidth: 0.3 },fixedrange: false 
         };
       });
 
@@ -1449,36 +1462,64 @@ const fetchAndPlotECG = async (ecgData, leadType, patientId, objectId, leadConfi
       line: { color: 'black', width: 1 },
       name: 'ECG'
     };
+    const dataLength = data.x.length;
+const windowSize = 2000;
+const rawDtick = (dataLength < windowSize)
+  ? Math.round(dataLength / 25)
+  : 100;
+
+// Round up to nearest multiple of 5
+const xDtick = Math.ceil(rawDtick / 5) * 5;
+
+// Always 5 minor boxes per major
+const xMinorDtick = xDtick / 5;
 
     const layout = {
       xaxis: {
-        range: [0, data.x.length],
+        range: [0, dataLength <= windowSize ? dataLength : windowSize],
         title: { text: 'Time Index', standoff: 20, font: { size: 12 } },
         showgrid: true,
-        gridcolor: 'rgba(242, 74, 74, 0.93)',
-        gridwidth: 0.6,
+        gridcolor: 'rgba(233, 18, 18, 0.93)',
         zeroline: false,
-        dtick: 100,
-        tickfont: { size: 12 },
-        minor: { showgrid: true, gridcolor: 'rgba(255, 192, 203, 0.93)', gridwidth: 0.5 }
+        dtick: xDtick,
+        minor: {
+            showgrid: true,
+            gridcolor: 'rgba(245, 199, 207, 0.93)',
+            gridwidth: 0.3,
+            dtick: xMinorDtick,
+            tick0: 0,
+        },
+        fixedrange: false  // allow panning
       },
       yaxis: {
         range: [0, 4],
         title: { text: 'ECG (mV)', standoff: 15, font: { size: 14 } },
         showgrid: true,
-        gridcolor: 'rgba(242, 74, 74, 0.93)',
-        gridwidth: 0.6,
+        gridcolor: 'rgba(233, 18, 18, 0.93)',
         zeroline: false,
         dtick: 0.5,
         tickfont: { size: 12 },
-        minor: { showgrid: true, gridcolor: 'rgba(255, 192, 203, 0.93)', gridwidth: 0.3 }
+        minor: {
+          showgrid: true,
+          gridcolor: 'rgba(245, 199, 207, 0.93)',
+          gridwidth: 0.3
+        },
+        fixedrange: true
       },
       showlegend: true,
-      legend: { x: 1, xanchor: 'right', y: 1, bgcolor: 'rgba(255, 255, 255, 0.5)' },
+      legend: { 
+        x: 1,
+        xanchor: 'right', 
+        y: 1,
+        bgcolor: 'rgba(255, 255, 255, 0.5)' 
+      },
       plot_bgcolor: document.body.dataset.theme === 'dark' ? '#1e1e2f' : 'white',
       paper_bgcolor: document.body.dataset.theme === 'dark' ? '#1e1e2f' : 'white',
-      font: { color: document.body.dataset.theme === 'dark' ? '#ffffff' : '#000000' },
+      font: { 
+        color: document.body.dataset.theme === 'dark' ? '#ffffff' : '#000000'
+      },
       margin: { t: 60, b: 70, l: 40, r: 40 },
+      dragmode: dataLength > windowSize ? 'pan' : false,
       autosize: true
     };
 
@@ -1674,7 +1715,7 @@ window.previewECG = async function () {
 
         let ecgData;
         let leadNames;
-
+        
         // Find the first non-empty row as the header
         let headerIndex = 0;
         while (headerIndex < rows.length && (rows[headerIndex].length === 0 || rows[headerIndex].every(cell => cell === ''))) {
@@ -1699,10 +1740,9 @@ window.previewECG = async function () {
         } else if (leadType === '12' && detectedLeadCount !== 12) {
             throw new Error(`Expected 12-lead CSV, but found ${detectedLeadCount} leads.`);
         }
-
-        if (leadType === '2') {
-            // Handle 2-lead CSV
-            const header = rows[headerIndex].length > 1 ? rows[headerIndex] : ['Index', 'II'];
+      if (leadType === '2') {
+            // Handle 2-lead CSV 
+            const header = rows[headerIndex].length > 1 ? rows[headerIndex] : ['Index', 'II']; 
             let x = [], y = [];
 
             for (let i = headerIndex + 1; i < rows.length; i++) {
@@ -1715,10 +1755,10 @@ window.previewECG = async function () {
                 y.push(yRaw);
 
                 if (isNaN(xRaw) || xRaw === 2024 || (x.length > 0 && xRaw === x[x.length - 1])) {
-                    x.push(i - headerIndex);
+                    x.push(i - headerIndex); 
                 } else {
                     x.push(xRaw);
-                }
+                } 
             }
 
             if (x.length === 0 || y.length === 0) {
@@ -1894,15 +1934,15 @@ window.plotECGPreview = async function (ecgData, leadType, leadNames, plotContai
             margin: { t: 20, b: 0, l: 0, r: 0 },
             showlegend: false
         };
-
-        const config = {
-            responsive: true,
-            displayModeBar: false
-        };
-
-        setTimeout(() => {
+        
+            const config = {
+                responsive: true,
+                displayModeBar: false
+            };
+        
+           setTimeout(() => {
             Plotly.newPlot(plotDiv, traces, layout, config).then(() => {
-                Plotly.Plots.resize(plotDiv);
+                        Plotly.Plots.resize(plotDiv);
             }).catch(err => {
                 plotDiv.innerHTML = `<p style="text-align:center; color: red;">Error rendering 2-lead plot: ${err.message}</p>`;
                 console.error('Plotly rendering error for 2-lead:', err);
@@ -1923,11 +1963,11 @@ window.plotECGPreview = async function (ecgData, leadType, leadNames, plotContai
             plotDiv.id = `preview-plot-lead-${idx}`;
             plotDiv.style.width = '100%';
             plotDiv.style.height = '150px';
-            plotDiv.style.marginBottom = '10px';
+            plotDiv.style.marginBottom = '10px'; 
             plotContainer.appendChild(plotDiv);
 
             const y = leadData[lead];
-            const x = Array.from({ length: y.length }, (_, i) => i); // Use indices based on sampled length
+            const x = Array.from({ length: y.length }, (_, i) => i);
             if (y.length === 0) {
                 console.error(`No data for lead ${lead} at index ${idx}`);
                 plotDiv.innerHTML = `<p style="text-align:center; color: red;">No data for ${lead}</p>`;
@@ -1943,24 +1983,24 @@ window.plotECGPreview = async function (ecgData, leadType, leadNames, plotContai
                 name: lead
             }];
 
-            const layout = {
-                title: { text: `Lead ${lead}`, font: { size: 12, color: fontColor } },
-                plot_bgcolor: bgColor,
-                paper_bgcolor: bgColor,
-                font: { color: fontColor },
-                xaxis: { visible: false }, // Hide x-axis to avoid confusion
-                yaxis: { visible: false },
-                margin: { t: 20, b: 0, l: 0, r: 0 },
-                showlegend: false,
-                editable: false,
-                modebar: { orientation: 'h', bgcolor: 'transparent', color: 'transparent', activecolor: 'transparent' },
-                autosize: true
-            };
+        const layout = {
+            title: { text: `Lead ${lead}`, font: { size: 12, color: fontColor } },
+            plot_bgcolor: bgColor,
+            paper_bgcolor: bgColor,
+            font: { color: fontColor },
+            xaxis: { visible: false },  
+            yaxis: { visible: false },
+            margin: { t: 20, b: 0, l: 0, r: 0 },
+            showlegend: false,
+            editable: false,
+            modebar: { orientation: 'h', bgcolor: 'transparent', color: 'transparent', activecolor: 'transparent' },
+            autosize: true
+        };
 
-            const config = {
-                responsive: true,
-                displayModeBar: false
-            };
+        const config = {
+            responsive: true,
+            displayModeBar: false
+        };
             Plotly.newPlot(plotDiv, traces, layout, config).then(() => {
                 Plotly.Plots.resize(plotDiv);
             }).catch(err => {
@@ -1981,16 +2021,13 @@ window.plotECGPreview = async function (ecgData, leadType, leadNames, plotContai
         });
         plotContainer.style.padding = '10px';
         plotContainer.style.height = '100%';
-    }
+   }
 
-    // Initial resize and event listener
     handleResize();
     window.addEventListener('resize', handleResize);
 
     if (pageLoader) pageLoader.style.display = 'none';
 };
-
-// Update submitForm to clear preview modal
 window.submitForm = debounce(async () => {
     const form = document.getElementById('insertForm');
     if (!form) return;
@@ -2057,435 +2094,6 @@ document.addEventListener('contextmenu', function (e) {
   }
 });
 
-// ecgCsvWorker.js
-
-self.onmessage = function (e) {
-    const { fileText } = e.data;
-
-    const lines = fileText.trim().split(/\r?\n/).filter(Boolean);
-    const header = lines[0].split(',').map(cell => cell.trim().toLowerCase());
-
-    let leadType;
-    if (header.length === 2) {
-        leadType = '2';
-    } else if (header.length === 7 || (header[0] === 'datetime' && header.length === 8)) {
-        leadType = '7';
-    } else if (header.length === 12 || (header[0] === 'datetime' && header.length === 13)) {
-        leadType = '12';
-    } else {
-        self.postMessage({ error: `Unable to detect lead type. Found ${header.length} columns.` });
-        return;
-    }
-
-    let ecgData;
-
-    if (leadType === '2') {
-        const x = [], y = [];
-        lines.forEach((line, idx) => {
-            const parts = line.split(',').map(cell => cell.trim());
-            if (parts.length >= 2 && !isNaN(parts[1])) {
-                x.push(idx);
-                y.push(parseFloat(parts[1]));
-            }
-        });
-        ecgData = { x, y };
-    } else {
-        const leadNames = header[0] === 'datetime' ? header.slice(1) : header;
-        const expectedCount = leadType === '7' ? 7 : 12;
-        if (leadNames.length !== expectedCount) {
-            self.postMessage({ error: `Expected ${expectedCount} leads, got ${leadNames.length}` });
-            return;
-        }
-
-        const leadDict = {};
-        leadNames.forEach(lead => leadDict[lead] = []);
-        lines.slice(1).forEach(line => {
-            const parts = line.split(',').map(cell => cell.trim());
-            const start = header[0] === 'datetime' ? 1 : 0;
-            leadNames.forEach((lead, idx) => {
-                const value = parseFloat(parts[idx + start]);
-                if (!isNaN(value)) leadDict[lead].push(value);
-            });
-        });
-
-        const x = Array.from({ length: leadDict[leadNames[0]].length }, (_, i) => i);
-        ecgData = { x, leadDict };
-    }
-
-    self.postMessage({ ecgData, leadType });
-};
-
-window.viewLocalDetails = viewLocalDetails;
-window.handleCsvUpload = handleCsvUpload;
-window.handleGoButtonClick = handleGoButtonClick;
-window.submitForm = submitForm;
-window.submitFormMultiple = submitFormMultiple;
-
-let detectedLeadType = null;
-
-function handleCsvUpload(file) {
-    const reader = new FileReader();
-    reader.onload = e => {
-        const lines = e.target.result.trim().split(/\r?\n/).filter(Boolean);
-        const header = lines[0].split(',').map(cell => cell.trim().toLowerCase());
-
-        let leadType;
-        if (header.length === 2) leadType = '2';
-        else if (header.length === 7 || (header[0] === 'datetime' && header.length === 8)) leadType = '7';
-        else if (header.length === 12 || (header[0] === 'datetime' && header.length === 13)) leadType = '12';
-        else {
-            alertSystem.error('Error', `Unable to auto-detect lead type. Found ${header.length} columns.`);
-            return;
-        }
-        detectedLeadType = leadType;
-
-        let ecgData;
-
-        if (leadType === '2') {
-            const x = [], y = [];
-            lines.forEach((line, idx) => {
-                const parts = line.split(',').map(cell => cell.trim());
-                if (parts.length >= 2 && !isNaN(parts[1])) {
-                    x.push(idx);
-                    y.push(parseFloat(parts[1]));
-                }
-            });
-            ecgData = { x, y };
-        } else {
-            const leadNames = header[0] === 'datetime' ? header.slice(1) : header;
-            const expectedLeadCount = leadType === '7' ? 7 : 12;
-
-            if (leadNames.length !== expectedLeadCount) {
-                alertSystem.error('Error', `Expected ${expectedLeadCount} leads, but found ${leadNames.length}.`);
-                return;
-            }
-
-            const leadDict = {};
-            leadNames.forEach(lead => leadDict[lead] = []);
-
-            lines.slice(1).forEach(line => {
-                const parts = line.split(',').map(cell => cell.trim());
-                const startIdx = header[0] === 'datetime' ? 1 : 0;
-                leadNames.forEach((lead, idx) => {
-                    const val = parseFloat(parts[idx + startIdx]);
-                    if (!isNaN(val)) leadDict[lead].push(val);
-                });
-            });
-
-            const x = Array.from({ length: leadDict[leadNames[0]].length }, (_, i) => i);
-            ecgData = { x, leadDict };
-        }
-
-        window._ecgArrayFull = ecgData;
-
-        const leadTypeInput = document.getElementById('newleadTypeMI');
-        if (leadTypeInput) leadTypeInput.value = leadType;
-
-        document.getElementById('plotStatus').style.display = 'block';
-        document.getElementById('plotStatus').innerText =
-            `Loaded ${leadType === '2' ? ecgData.y.length : Object.values(ecgData.leadDict)[0].length} samples for ${leadType}-lead ECG.`;
-    };
-
-    reader.onerror = err => {
-        console.error('CSV load error:', err);
-        alertSystem.error('Error', 'Failed to load CSV file.');
-    };
-
-    reader.readAsText(file);
-}
-
-function handleGoButtonClick() {
-    const val = parseFloat(document.getElementById('timeValue')?.value);
-    const unit = document.getElementById('timeUnit')?.value;
-
-    if (isNaN(val)) {
-        alertSystem.error('Error', 'Enter a valid time.');
-        return;
-    }
-
-    let seconds = val;
-    if (unit === 'minutes') seconds *= 60;
-    if (unit === 'hours') seconds *= 3600;
-
-    const samplingRate = 200;
-    const samples = Math.floor(seconds * samplingRate);
-    const full = window._ecgArrayFull;
-
-    if (!full) {
-        alertSystem.error('Error', 'No ECG data loaded.');
-        return;
-    }
-
-    const leadTypeInput = document.getElementById('newleadTypeMI');
-    const leadType = leadTypeInput?.value || detectedLeadType || '2';
-
-    let ecgData;
-
-    if (leadType === '2') {
-        if (full.y.length < samples) {
-            alertSystem.error('Error', `Only ${(full.y.length / samplingRate).toFixed(2)}s of data available.`);
-            return;
-        }
-        ecgData = {
-            x: full.x.slice(0, samples),
-            y: full.y.slice(0, samples)
-        };
-    } else {
-        const slicedX = full.x.slice(0, samples);
-        const leadDict = {};
-        for (const lead in full.leadDict) {
-            const arr = full.leadDict[lead] || [];
-            if (arr.length < samples) {
-                alertSystem.error('Error', `Only ${(arr.length / samplingRate).toFixed(2)}s of data available for ${lead}.`);
-                return;
-            }
-            leadDict[lead] = {
-                x: slicedX,
-                y: arr.slice(0, samples)
-            };
-        }
-        ecgData = { leadDict };
-    }
-
-    window._ecgArray = ecgData;
-
-    document.getElementById('plotStatus').style.display = 'none';
-    viewLocalDetails();
-}
-
-function viewLocalDetails() {
-    const data = window._ecgArray;
-    const leadType = document.getElementById('newleadTypeMI')?.value || detectedLeadType || '2';
-    const samplingRate = 200;
-
-    let x = [], y = [];
-
-    if (leadType === '2') {
-        if (!data.x || !data.y) return alert("2-lead ECG data missing.");
-        x = data.x;
-        y = baseline_construction_200(lowpass(data.y));
-    } else {
-        const leadNames = Object.keys(data.leadDict);
-        const preferredLead = data.leadDict['II'] || data.leadDict[leadNames[0]];
-        if (!preferredLead?.x || !preferredLead?.y) return alert("No suitable lead found for plotting.");
-        x = preferredLead.x;
-        y = baseline_construction_200(lowpass(preferredLead.y));
-    }
-
-    const timeSeries = x.map((t, i) => [t / samplingRate, y[i]]);
-    const container = document.getElementById('localPlot');
-    container.innerHTML = "";
-    container.style.display = "block";
-
-    const g = new Dygraph(container, timeSeries, {
-        labels: ['Time (s)', 'Voltage (mV)'],
-        ylabel: 'Voltage (mV)',
-        xlabel: 'Time (s)',
-        drawGrid: true,
-        showRangeSelector: true,
-        colors: ['#007bff'],
-        strokeWidth: 1.5
-    });
-
-    setTimeout(() => {
-        const duration = timeSeries[timeSeries.length - 1][0];
-        g.updateOptions({ dateWindow: duration >= 10 ? [0, 10] : [0, duration] });
-    }, 100);
-}
-
-function lowpass(signal, cutoff = 0.4) {
-    const windowSize = 5;
-    return signal.map((_, i) => {
-        const start = Math.max(0, i - windowSize);
-        const end = Math.min(signal.length, i + windowSize);
-        const segment = signal.slice(start, end + 1);
-        return segment.reduce((a, b) => a + b, 0) / segment.length;
-    });
-}
-
-function baseline_construction_200(signal, kernel_size = 101) {
-    const mean = signal.reduce((a, b) => a + b, 0) / signal.length;
-    const detrended = signal.map(v => v - mean);
-    const half = Math.floor(kernel_size / 2);
-    return detrended.map((_, i) => {
-        const start = Math.max(0, i - half);
-        const end = Math.min(signal.length, i + half + 1);
-        const segment = detrended.slice(start, end).sort((a, b) => a - b);
-        const baseline = segment[Math.floor(segment.length / 2)];
-        return detrended[i] - baseline;
-    });
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-    document.getElementById('csv_file_multiple')?.addEventListener('change', e => {
-        if (e.target.files[0]) handleCsvUpload(e.target.files[0]);
-    });
-
-    document.getElementById('jumpToTimeBtn')?.addEventListener('click', handleGoButtonClick);
-    setupArrhythmiaDropdown('newarrhythmiaMI_multiple', 'newsubArrhythmia_multiple'); 
-});
-function submitFormMultiple() {
-    const form = document.getElementById("insertFormMultiple");
-    const pageLoader = document.getElementById('page-loader');
-    const plotContainer = document.getElementById('preview-lead-container');
-    const saveButton = form?.querySelector('button[onclick="submitFormMultiple()"]');
-    const patientId = document.getElementById('newpatientId1')?.value.trim() || '';
-
-    if (!form) {
-        alertSystem.error('Error', 'Form not found.');
-        return;
-    }
-
-    if (!patientId) {
-        alertSystem.error('Error', 'Patient ID is required. Please enter a valid Patient ID.');
-        return;
-    }
-
-    const formData = new FormData(form);
-    formData.append('patientId', patientId);
-
-    const ecgData = window._ecgArray;
-    if (!ecgData || (!ecgData.x && !ecgData.leadDict) || (ecgData.x && ecgData.x.length === 0)) {
-        alertSystem.error('Error', 'No valid ECG data loaded. Please select a time range and preview first.');
-        return;
-    }
-
-    const leadType = form.querySelector('#leadTypeMI')?.value;
-
-    let dataToSend;
-
-    // --- Lead count validation ---
-    if (leadType === '2') {
-        if (ecgData.leadDict) {
-            alertSystem.warning('Warning', 'You are trying to submit multi-lead data as 2-lead. Please select the correct lead type.');
-            return;
-        }
-        dataToSend = { x: ecgData.x, y: ecgData.y };
-    } else if (leadType === '7' || leadType === '12') {
-        let fullLeadDict = ecgData.leadDict || ecgData.leads || ecgData.signals || ecgData.data || {};
-        const leadCount = Object.keys(fullLeadDict).length;
-        const mapping = {
-            '7': ['I', 'II', 'III', 'aVR', 'aVL', 'aVF', 'V5'],
-            '12': ['I', 'II', 'III', 'aVR', 'aVL', 'aVF', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6']
-        };
-        const requiredLeads = mapping[leadType];
-
-        // Check for mismatched lead count
-        if (leadCount !== requiredLeads.length) {
-            alertSystem.warning(
-                'Lead Count Mismatch',
-                `You are trying to submit ${leadCount}-lead data as ${leadType}-lead. Please upload/select the correct lead type.`
-            );
-            return;
-        }
-
-        // Check for 12-lead data submitted as 7-lead or 2-lead
-        if (leadType === '7' && leadCount === 12) {
-            alertSystem.warning(
-                'Lead Count Mismatch',
-                'You are trying to submit 12-lead data as 7-lead. Please select 12-lead option.'
-            );
-            return;
-        }
-        if (leadType === '7' && leadCount < 7) {
-            alertSystem.warning(
-                'Lead Count Mismatch',
-                'You are trying to submit less than 7-lead data as 7-lead. Please select the correct lead type.'
-            );
-            return;
-        }
-        if (leadType === '12' && leadCount < 12) {
-            alertSystem.warning(
-                'Lead Count Mismatch',
-                'You are trying to submit less than 12-lead data as 12-lead. Please select the correct lead type.'
-            );
-            return;
-        }
-        if (leadType === '7' && leadCount > 7) {
-            alertSystem.warning(
-                'Lead Count Mismatch',
-                'You are trying to submit more than 7-lead data as 7-lead. Please select the correct lead type.'
-            );
-            return;
-        }
-
-        // Normalize and prepare data as before
-        const normalizedDict = {};
-        for (const key in fullLeadDict) {
-            const upperKey = key.toUpperCase();
-            const stdKey = upperKey.replace(/^V(\d)$/, 'V$1')
-                                   .replace('AVR', 'aVR').replace('AVL', 'aVL').replace('AVF', 'aVF');
-            normalizedDict[stdKey] = fullLeadDict[key];
-        }
-
-        const leadDict = {};
-        for (const stdLead of requiredLeads) {
-            const leadData = normalizedDict[stdLead];
-            if (!leadData) {
-                alertSystem.warning('Missing data', `No data found for ${stdLead}`);
-                leadDict[stdLead] = [];
-                continue;
-            }
-            let rawArray = [];
-            if (Array.isArray(leadData)) rawArray = leadData;
-            else if (Array.isArray(leadData.samples)) rawArray = leadData.samples;
-            else if (Array.isArray(leadData.full)) rawArray = leadData.full;
-            else if (Array.isArray(leadData.y)) rawArray = leadData.y;
-            else console.warn(`⚠️ Lead ${stdLead} format not recognized:`, leadData);
-
-            leadDict[stdLead] = rawArray;
-        }
-
-        dataToSend = { leadDict };
-    } else {
-        alertSystem.error('Error', 'Invalid lead type selected.');
-        return;
-    }
-
-    formData.append('ecgData', JSON.stringify(dataToSend));
-
-    // Disable UI
-    if (pageLoader) pageLoader.style.display = 'flex';
-    if (saveButton) saveButton.disabled = true;
-
-    // Keep modal open — DO NOT HIDE MODALS
-    // Just clear chart
-    if (plotContainer) {
-        plotContainer.innerHTML = '';
-        Plotly.purge(plotContainer);
-    }
-
-    // Submit to backend
-    fetch('/ommecgdata/rytham_data_insert/', {
-        method: 'POST',
-        body: formData,
-        headers: { 'X-CSRFToken': getCSRFToken() }
-    })
-    .then(response => {
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        return response.json();
-    })
-    .then(data => {
-        if (data.status === 'success') {
-            alertSystem.success('Success', 'Selected ECG data inserted successfully.');
-
-            // Also clear time/frequency fields and plot
-            document.getElementById('timeValue') && (document.getElementById('timeValue').value = '');
-            document.getElementById('timeUnit') && (document.getElementById('timeUnit').selectedIndex = 0);
-            document.getElementById('newfrequencyMultiple') && (document.getElementById('newfrequencyMultiple').value = '');
-        } else {
-            alertSystem.error('Error', `Failed to insert data: ${data.message || 'Unknown error'}`);
-        }
-    })
-    .catch(error => {
-        console.error('Insertion Error:', error);
-        alertSystem.error('Error', `An error occurred: ${error.message}`);
-    })
-    .finally(() => {
-        if (pageLoader) pageLoader.style.display = 'none';
-        if (saveButton) saveButton.disabled = false;
-    });
-}
 
 ['openInsertModalBtn', 'opengetModalBtn', 'openMultipleModalBtn'].forEach(buttonId => {
   const button = document.getElementById(buttonId);
@@ -2521,21 +2129,261 @@ function submitFormMultiple() {
       const modal = document.getElementById(modalId);
       if (!modal) return;
 
-      // Clear inputs/selects
-      modal.querySelectorAll('input, select, textarea').forEach(field => {
-        if (field.type === 'checkbox' || field.type === 'radio') {
-          field.checked = false;
-        } else {
-          field.value = '';
-          if (field.tagName.toLowerCase() === 'select') {
+        modal.querySelectorAll('input, select, textarea').forEach(field => {
+          if (field.type === 'checkbox' || field.type === 'radio') {
+            field.checked = false;
+          } else {
+            field.value = '';
+            if (field.tagName.toLowerCase() === 'select') {
             field.selectedIndex = 0;
           }
-        }
+          }
+        });
       });
+    }
+  });
+  
+const scrollToTopBtn = document.getElementById('scrollToTop');
+
+if (scrollToTopBtn) {
+  // Show/hide scroll-to-top button based on scroll position (20% of document height)
+  window.addEventListener('scroll', function() {
+    const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
+    const scrollPosition = window.scrollY;
+    const showThreshold = scrollHeight * 0.2; // 20% of scrollable height
+    
+    if (scrollPosition > showThreshold) {
+      scrollToTopBtn.classList.add('visible');
+    } else {
+      scrollToTopBtn.classList.remove('visible');
+    }
+  });
+
+  // Scroll to top and close all plots when button is clicked
+  scrollToTopBtn.addEventListener('click', function() {
+    // Add clicked class for rotation animation
+    scrollToTopBtn.classList.add('clicked');
+    
+    // Close all open plots
+    document.querySelectorAll('.plot-row').forEach(plotRow => {
+      plotRow.style.display = 'none';
     });
-  }
+    
+    // Smooth scroll to top
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+
+    // Remove clicked class after animation
+    setTimeout(() => {
+      scrollToTopBtn.classList.remove('clicked');
+    }, 500); // Matches --transition-slow duration
+  });
+}
+window.addArrhythmiaGroup = function () {
+  const container = document.getElementById('arrhythmiaContainer');
+  const firstGroup = container?.querySelector('.arrhythmia-group');
+
+  if (!firstGroup) return;
+
+  const newGroup = firstGroup.cloneNode(true);
+
+  const arrhythmiaSelect = newGroup.querySelector('.arrhythmia-select');
+  const subArrhythmiaSelect = newGroup.querySelector('.sub-arrhythmia-select');
+
+  if (arrhythmiaSelect) arrhythmiaSelect.value = '';
+  if (subArrhythmiaSelect) subArrhythmiaSelect.value = '';
+
+  container.appendChild(newGroup);
+};
+
+// Handle showing correct sub-arrhythmias
+document.addEventListener('change', function (e) {
+    if (e.target.classList.contains('arrhythmia-select')) {
+        const arrhythmia = e.target.value;
+        const subSelect = e.target.closest('.arrhythmia-group').querySelector('.sub-arrhythmia-select');
+
+        // Hide all options
+        Array.from(subSelect.options).forEach(opt => {
+            opt.style.display = 'none';
+            if (!opt.value) opt.style.display = 'block'; // keep default
+        });
+
+        // Show only matching arrhythmia sub-types
+        Array.from(subSelect.options).forEach(opt => {
+            if (opt.dataset.arrhythmia === arrhythmia) {
+                opt.style.display = 'block';
+            }
+        });
+
+        // Reset sub-selection
+        subSelect.value = '';
+    }
 });
 
+window.addArrhythmiaDurationGroup = function () {
+  const container = document.getElementById('arrhythmiaDurationContainer');
+  const firstGroup = container.querySelector('.arrhythmia-group');
+
+  if (!firstGroup) return;
+
+  const newGroup = firstGroup.cloneNode(true);
+
+  const select = newGroup.querySelector('select');
+  const input = newGroup.querySelector('input');
+
+  if (select) select.value = '';
+  if (input) input.value = '';
+
+  container.appendChild(newGroup);
+};
+ 
+const attachGetPageFormListener = () => {
+  document.addEventListener('submit', async (e) => {
+    if (e.target.id !== 'getPageForm') return;
+    e.preventDefault();
+
+    console.log("Form submitted");
+
+    const selectors = {
+      arrhythmiaGroups: '#arrhythmiaDurationContainer .arrhythmia-group',
+      leadInput: '[name="leadTypess"]',
+      frequencyInput: '[name="frequencyss"]',
+      csrfInput: '[name="csrfmiddlewaretoken"]'
+    };
+
+    const elements = {
+      arrhythmiaGroups: document.querySelectorAll(selectors.arrhythmiaGroups),
+      leadInput: document.querySelector(selectors.leadInput),
+      frequencyInput: document.querySelector(selectors.frequencyInput),
+      csrfInput: document.querySelector(selectors.csrfInput)
+    };
+
+    //Basic validation
+    if (!elements.arrhythmiaGroups.length || !elements.leadInput || !elements.frequencyInput || !elements.csrfInput) {
+      alertSystem.error('Error', 'Form is incomplete. Please check all fields.');
+      return;
+    }
+
+    const arrhythmiaData = Array.from(elements.arrhythmiaGroups)
+      .map(group => ({
+        arrhythmia: group.querySelector('select')?.value,
+        duration: parseInt(group.querySelector('input')?.value) || 0
+      }))
+      .filter(data => data.arrhythmia && data.duration);
+
+    if (!arrhythmiaData.length) {
+      alertSystem.warning('Warning', 'No valid arrhythmia data provided.');
+      return;
+    }
+
+    const formData = {
+      lead: elements.leadInput.value,
+      frequency: parseInt(elements.frequencyInput.value),
+      arrhythmiaData
+    };
+
+    const pageLoader = document.getElementById('page-loader');
+    if (pageLoader) pageLoader.style.display = 'flex';
+
+    try {
+      //First request - get multiple segments
+      const response = await fetch('/ommecgdata/get_multiple_segments/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          "X-Requested-With": "XMLHttpRequest",
+          "X-CSRFToken": elements.csrfInput.value,
+        },
+        body: JSON.stringify(formData)
+      });
+
+      const result = await response.json();
+      console.log('Response from get_multiple_segments:', result);
+
+      if (result.status === 'success' && result.data?.length > 0) {
+        //Get unique arrhythmias from backend response
+        const arrhythmias = [...new Set(result.data.map(d => d.arrhythmia?.toLowerCase()))];
+        let allDetails = [];
+
+        //Fetch ECG details for each arrhythmia
+        for (const arr of arrhythmias) {
+          if (!arr) continue;
+          try {
+            const detailsResponse = await fetch(`/ommecgdata/ecg_details/${arr}/`, {
+              headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+
+            const contentType = detailsResponse.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+              const json = await detailsResponse.json();
+              console.log(`ecg-details for ${arr}:`, json.data);
+              allDetails.push(...(json.data || []));
+            } else {
+              console.warn(`Skipping ${arr}, invalid response format`);
+            }
+          } catch (err) {
+            console.error(`Failed to fetch details for ${arr}:`, err);
+          }
+        }
+
+        //Deduplicate by patient_id
+        const uniqueData = Array.from(
+          new Map(allDetails.map(item => [item.PatientID || item.patient_id, item])).values()
+        );
+
+        console.log(`Total merged: ${allDetails.length}, Unique: ${uniqueData.length}`);
+
+        if (uniqueData.length > 0) {
+          sessionStorage.clear();
+          // sessionStorage.setItem('selectedArrhythmia', arrhythmias[0]); // just first arrhythmia
+          sessionStorage.setItem('selectedArrhythmia', arrhythmias.join(','));
+          sessionStorage.setItem('dataSource', 'multiple_segments');
+          sessionStorage.setItem('searchResults', JSON.stringify(uniqueData));
+          sessionStorage.setItem('totalPages', 1);
+
+          // Redirect to first arrhythmia's detail page
+          window.location.href = `/ommecgdata/ecg_details/${arrhythmias[0]}/`;
+        } else {
+          alertSystem.info('Info', 'No ECG data found for selected segments.');
+        }
+      } else {
+        alertSystem.info('Info', result.message || 'No valid data found.');
+      }
+    } catch (err) {
+      console.error('Error submitting form:', err);
+      alertSystem.error('Error', 'Failed to submit form. Please try again.');
+    } finally {
+      if (pageLoader) pageLoader.style.display = 'none';
+    }
+  });
+};
+
+attachGetPageFormListener();
   attachRowEventListeners();
   loadSessionData();
+});
+const getPageModal = document.getElementById('getPageModal');
+
+if (getPageModal) {
+  getPageModal.addEventListener('hidden.bs.modal', function () {
+    location.reload();
+  });
+}
+document.addEventListener('DOMContentLoaded', () => {
+  const footerCloseBtn = document.getElementById('modalFooterClose');
+  const getPageModal = document.getElementById('getPageModal');
+
+  if (footerCloseBtn && getPageModal) {
+    footerCloseBtn.addEventListener('click', () => {
+      const bsModal = bootstrap.Modal.getInstance(getPageModal);
+      if (bsModal) {
+        bsModal.hide();
+        setTimeout(() => {
+          location.reload();
+        }, 300); // wait for fade-out animation
+      }
+    });
+  }
 });
